@@ -10,6 +10,23 @@ import app.annotations as annotations_module
 from app.annotations import AnnotationFileError, load_annotations, save_episode_annotations
 
 
+UTF8_ONLY_ANNOTATIONS_BYTES = b'{"episode_\xff": [1]}'
+
+
+def _simulate_single_byte_locale_read_text(monkeypatch) -> None:
+    original_read_bytes = Path.read_bytes
+
+    def read_text(self: Path, encoding=None, errors=None) -> str:
+        effective_encoding = "latin-1" if encoding is None else encoding
+        effective_errors = "strict" if errors is None else errors
+        return original_read_bytes(self).decode(
+            effective_encoding,
+            effective_errors,
+        )
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+
 def test_load_annotations_returns_empty_dict_for_missing_file(tmp_path):
     target = tmp_path / "annotations.json"
 
@@ -57,9 +74,12 @@ def test_load_annotations_raises_for_malformed_json(tmp_path):
         load_annotations(target)
 
 
-def test_load_annotations_raises_for_invalid_utf8_bytes(tmp_path):
+def test_load_annotations_rejects_invalid_utf8_bytes_even_if_single_byte_decoding_would_parse(
+    tmp_path, monkeypatch
+):
     target = tmp_path / "annotations.json"
-    target.write_bytes(b"\xff")
+    target.write_bytes(UTF8_ONLY_ANNOTATIONS_BYTES)
+    _simulate_single_byte_locale_read_text(monkeypatch)
 
     with pytest.raises(AnnotationFileError):
         load_annotations(target)
@@ -104,15 +124,33 @@ def test_save_episode_annotations_raises_for_invalid_frame_indices(
         save_episode_annotations(target, "episode_49", frame_indices)
 
 
-def test_save_episode_annotations_refuses_invalid_utf8_existing_file(tmp_path):
+def test_save_episode_annotations_refuses_invalid_utf8_existing_file(
+    tmp_path, monkeypatch
+):
     target = tmp_path / "annotations.json"
-    invalid_bytes = b"\xff"
-    target.write_bytes(invalid_bytes)
+    target.write_bytes(UTF8_ONLY_ANNOTATIONS_BYTES)
+    _simulate_single_byte_locale_read_text(monkeypatch)
 
     with pytest.raises(AnnotationFileError):
         save_episode_annotations(target, "episode_49", [183, 241, 317])
 
-    assert target.read_bytes() == invalid_bytes
+    assert target.read_bytes() == UTF8_ONLY_ANNOTATIONS_BYTES
+
+
+def test_save_episode_annotations_writes_with_explicit_utf8(tmp_path, monkeypatch):
+    target = tmp_path / "annotations.json"
+    encodings: list[str | None] = []
+    original_fdopen = annotations_module.os.fdopen
+
+    def recording_fdopen(*args, **kwargs):
+        encodings.append(kwargs.get("encoding"))
+        return original_fdopen(*args, **kwargs)
+
+    monkeypatch.setattr(annotations_module.os, "fdopen", recording_fdopen)
+
+    save_episode_annotations(target, "episode_49", [241])
+
+    assert encodings == ["utf-8"]
 
 
 def test_save_episode_annotations_waits_for_lock_before_writing(tmp_path):

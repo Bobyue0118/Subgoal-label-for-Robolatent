@@ -52,7 +52,7 @@ def load_annotations(annotations_file: Path) -> dict[str, list[int]]:
     if not annotations_file.exists():
         return {}
     try:
-        raw = json.loads(annotations_file.read_text())
+        raw = json.loads(annotations_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise AnnotationFileError(
             f"Malformed annotations file: {annotations_file}"
@@ -97,7 +97,7 @@ def _write_annotations_atomically(
     temp_file = Path(temp_name)
 
     try:
-        with os.fdopen(temp_fd, "w") as handle:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as handle:
             handle.write(payload)
         os.replace(temp_file, annotations_file)
     finally:
