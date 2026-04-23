@@ -51,6 +51,7 @@ def test_load_annotations_raises_for_invalid_schema(tmp_path, payload):
 @pytest.mark.parametrize(
     "payload",
     [
+        {"episode_49": [-1, 241]},
         {"episode_49": [183, 241.5]},
         {"episode_49": [False, 241]},
         {"episode_49": ["317", 241]},
@@ -64,7 +65,10 @@ def test_load_annotations_raises_for_invalid_frame_indices(tmp_path, payload):
         load_annotations(target)
 
 
-@pytest.mark.parametrize("frame_indices", [[183, 241.5], [False, 241], ["317", 241]])
+@pytest.mark.parametrize(
+    "frame_indices",
+    [[-1, 241], [183, 241.5], [False, 241], ["317", 241]],
+)
 def test_save_episode_annotations_raises_for_invalid_frame_indices(
     tmp_path, frame_indices
 ):

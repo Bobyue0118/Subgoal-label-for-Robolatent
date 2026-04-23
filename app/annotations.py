@@ -22,6 +22,10 @@ def _normalize_frame_indices(
             raise AnnotationFileError(
                 f"Invalid frame index for {episode_id} in {annotations_file}"
             )
+        if frame_index < 0:
+            raise AnnotationFileError(
+                f"Negative frame index for {episode_id} in {annotations_file}"
+            )
         normalized.add(frame_index)
     return sorted(normalized)
 
@@ -59,5 +63,8 @@ def save_episode_annotations(
         annotations_file,
         episode_id,
     )
-    annotations_file.write_text(json.dumps(annotations, indent=2, sort_keys=True) + "\n")
+    payload = json.dumps(annotations, indent=2, sort_keys=True) + "\n"
+    temp_file = annotations_file.with_name(f"{annotations_file.name}.tmp")
+    temp_file.write_text(payload)
+    temp_file.replace(annotations_file)
     return annotations
