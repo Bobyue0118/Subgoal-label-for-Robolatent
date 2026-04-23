@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+import app.annotations as annotations_module
 from app.annotations import AnnotationFileError, load_annotations, save_episode_annotations
 
 
@@ -56,6 +57,14 @@ def test_load_annotations_raises_for_malformed_json(tmp_path):
         load_annotations(target)
 
 
+def test_load_annotations_raises_for_invalid_utf8_bytes(tmp_path):
+    target = tmp_path / "annotations.json"
+    target.write_bytes(b"\xff")
+
+    with pytest.raises(AnnotationFileError):
+        load_annotations(target)
+
+
 @pytest.mark.parametrize("payload", [[], {"episode_49": 317}])
 def test_load_annotations_raises_for_invalid_schema(tmp_path, payload):
     target = tmp_path / "annotations.json"
@@ -95,6 +104,17 @@ def test_save_episode_annotations_raises_for_invalid_frame_indices(
         save_episode_annotations(target, "episode_49", frame_indices)
 
 
+def test_save_episode_annotations_refuses_invalid_utf8_existing_file(tmp_path):
+    target = tmp_path / "annotations.json"
+    invalid_bytes = b"\xff"
+    target.write_bytes(invalid_bytes)
+
+    with pytest.raises(AnnotationFileError):
+        save_episode_annotations(target, "episode_49", [183, 241, 317])
+
+    assert target.read_bytes() == invalid_bytes
+
+
 def test_save_episode_annotations_waits_for_lock_before_writing(tmp_path):
     target = tmp_path / "annotations.json"
     target.write_text(json.dumps({"episode_48": [8]}))
@@ -126,6 +146,60 @@ def test_save_episode_annotations_waits_for_lock_before_writing(tmp_path):
     thread.join(timeout=1)
 
     assert thread.is_alive() is False
+    assert errors == []
+    assert json.loads(target.read_text()) == {
+        "episode_48": [8],
+        "episode_49": [241],
+    }
+
+
+def test_save_episode_annotations_serializes_competing_updates(
+    tmp_path, monkeypatch
+):
+    target = tmp_path / "annotations.json"
+    original_write = annotations_module._write_annotations_atomically
+    first_write_started = threading.Event()
+    allow_first_write = threading.Event()
+    first_call_lock = threading.Lock()
+    first_call = True
+    errors: list[Exception] = []
+
+    def gated_write(annotations_file: Path, annotations: dict[str, list[int]]) -> None:
+        nonlocal first_call
+        with first_call_lock:
+            is_first_call = first_call
+            if is_first_call:
+                first_call = False
+
+        if is_first_call:
+            first_write_started.set()
+            assert allow_first_write.wait(timeout=1)
+
+        original_write(annotations_file, annotations)
+
+    def worker(episode_id: str, frame_indices: list[int]) -> None:
+        try:
+            save_episode_annotations(target, episode_id, frame_indices)
+        except Exception as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+
+    monkeypatch.setattr(annotations_module, "_write_annotations_atomically", gated_write)
+
+    first_thread = threading.Thread(target=worker, args=("episode_48", [8]))
+    second_thread = threading.Thread(target=worker, args=("episode_49", [241]))
+
+    first_thread.start()
+    assert first_write_started.wait(timeout=1)
+
+    second_thread.start()
+    time.sleep(0.05)
+    allow_first_write.set()
+
+    first_thread.join(timeout=1)
+    second_thread.join(timeout=1)
+
+    assert first_thread.is_alive() is False
+    assert second_thread.is_alive() is False
     assert errors == []
     assert json.loads(target.read_text()) == {
         "episode_48": [8],

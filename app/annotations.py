@@ -53,7 +53,7 @@ def load_annotations(annotations_file: Path) -> dict[str, list[int]]:
         return {}
     try:
         raw = json.loads(annotations_file.read_text())
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise AnnotationFileError(
             f"Malformed annotations file: {annotations_file}"
         ) from exc
