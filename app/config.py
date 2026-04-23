@@ -17,10 +17,18 @@ def resolve_dataset_dir(repo_root: Path) -> Path:
     return repo_root.resolve().parent
 
 
-def dataset_paths(repo_root: Path) -> DatasetPaths:
-    dataset_dir = resolve_dataset_dir(repo_root)
+def dataset_paths(
+    repo_root: Path | None = None,
+    dataset_dir: Path | None = None,
+) -> DatasetPaths:
+    if dataset_dir is not None:
+        resolved_dataset_dir = Path(dataset_dir).expanduser().resolve()
+    else:
+        if repo_root is None:
+            raise ValueError("repo_root is required when dataset_dir is not supplied")
+        resolved_dataset_dir = resolve_dataset_dir(repo_root)
     return DatasetPaths(
-        dataset_dir=dataset_dir,
-        annotations_file=dataset_dir / "annotations.json",
-        extracted_frames_dir=dataset_dir / "extracted_frames",
+        dataset_dir=resolved_dataset_dir,
+        annotations_file=resolved_dataset_dir / "annotations.json",
+        extracted_frames_dir=resolved_dataset_dir / "extracted_frames",
     )
