@@ -4,68 +4,119 @@
   --ink: #1b1a17;
   --accent: #b4512f;
   --border: #d5c6b2;
+  --shell-pad: 14px;
+  --shell-gap: 12px;
 }
 
+html,
 body {
+  height: 100%;
   margin: 0;
   font-family: "Avenir Next", "Helvetica Neue", sans-serif;
   background: radial-gradient(circle at top, #fff7ea, var(--bg));
   color: var(--ink);
+  overflow: hidden;
 }
 
 .app-shell {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  min-height: 100vh;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 100vh;
 }
 
 .sidebar,
 .workspace {
-  padding: 20px;
+  padding: var(--shell-pad);
+  min-height: 0;
 }
 
 .sidebar {
   border-right: 1px solid var(--border);
   background: rgba(255, 250, 242, 0.92);
+  overflow: auto;
+}
+
+.sidebar h1 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: var(--shell-gap);
+  overflow: hidden;
 }
 
 .viewer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: var(--shell-gap);
+  min-height: 0;
 }
 
 .viewer-card {
-  min-height: 260px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px;
+  border-radius: 16px;
+  padding: 10px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  align-items: center;
+}
+
+.current-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.current-state p {
+  margin: 0;
+}
+
+#status-message {
+  color: var(--accent);
 }
 
 #episode-list {
   list-style: none;
   padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
 }
 
 .viewer-card__header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 8px;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .viewer-card img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 100%;
+  min-height: 0;
   border-radius: 12px;
   background: #000;
   object-fit: contain;
@@ -76,6 +127,52 @@ body {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: white;
-  padding: 8px 12px;
+  padding: 6px 10px;
   cursor: pointer;
+  font: inherit;
+}
+
+#jump-to-frame {
+  width: 88px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+@media (max-width: 960px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    overflow: visible;
+  }
+
+  .workspace {
+    overflow: visible;
+    grid-template-rows: auto auto auto;
+  }
+
+  .viewer-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+  }
+
+  .viewer-card {
+    min-height: 0;
+  }
+
+  .viewer-card img {
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
 }
