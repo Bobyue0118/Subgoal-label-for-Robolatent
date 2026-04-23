@@ -35,6 +35,8 @@ def test_episode_and_annotation_routes_return_expected_payloads(tmp_path):
     )
 
     assert episodes_response.status_code == 200
+    assert annotations_response.status_code == 200
+    assert save_response.status_code == 200
     assert episodes_response.get_json()[0]["episodeId"] == "episode_49"
     assert (
         episodes_response.get_json()[0]["videos"]["cam_high"]
