@@ -90,7 +90,12 @@ def discover_episodes(
         item = grouped[episode_id]
         missing_cameras = [camera for camera in CAMERAS if camera not in item["videos"]]
         valid = item["hdf5"] is not None and not missing_cameras
-        metadata = probe_video(item["videos"]["cam_high"]) if valid else None
+        metadata = None
+        if valid:
+            try:
+                metadata = probe_video(item["videos"]["cam_high"])
+            except Exception:
+                valid = False
         records.append(
             EpisodeRecord(
                 episode_id=episode_id,
