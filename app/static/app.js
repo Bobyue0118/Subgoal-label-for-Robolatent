@@ -1,11 +1,15 @@
 import {
-  extractCamHigh,
   fetchAnnotations,
   fetchEpisodes,
   saveEpisodeAnnotations,
 } from "./api.js";
 import { loadFrameImages } from "./frame-loader.js";
 import { stepFrame, toggleFrameIndex } from "./player-controller.js";
+import {
+  episodeButtonClassName,
+  playPauseLabel,
+  playbackRateButtonClassName,
+} from "./ui-state.js";
 
 const state = {
   episodes: [],
@@ -51,14 +55,28 @@ function renderEpisodeList() {
       ? `${labelCount} labels`
       : `invalid: ${invalidReason(episode)}`;
     button.textContent = `${episode.episodeId} (${status})`;
+    button.className = episodeButtonClassName(state.currentEpisodeIndex, index);
     button.disabled = !episode.valid;
     button.addEventListener("click", () => {
       state.currentEpisodeIndex = index;
       state.currentFrameIndex = 0;
       void loadEpisodeFrames();
+      renderEpisodeList();
     });
     item.appendChild(button);
     list.appendChild(item);
+  });
+}
+
+function renderControlState() {
+  const playPauseButton = document.getElementById("play-pause");
+  if (playPauseButton) {
+    playPauseButton.textContent = playPauseLabel(state.isPlaying);
+  }
+
+  document.querySelectorAll("[data-rate]").forEach((button) => {
+    const rate = Number(button.dataset.rate);
+    button.className = playbackRateButtonClassName(state.playbackRate, rate);
   });
 }
 
@@ -145,6 +163,7 @@ async function loadEpisodeFrames() {
 
   document.getElementById("status-message").textContent = "";
   await syncFramesToCurrentFrame();
+  renderControlState();
 }
 
 function moveToAdjacentValidEpisode(direction) {
@@ -174,6 +193,7 @@ function tickPlayback() {
   const nextFrameIndex = stepFrame(state.currentFrameIndex, 1, episode.frameCount);
   if (nextFrameIndex === state.currentFrameIndex) {
     state.isPlaying = false;
+    renderControlState();
     return;
   }
 
@@ -198,6 +218,7 @@ function bindControls() {
     }
 
     state.isPlaying = !state.isPlaying;
+    renderControlState();
     if (state.isPlaying) {
       tickPlayback();
     } else {
@@ -260,22 +281,10 @@ function bindControls() {
     await loadEpisodeFrames();
   });
 
-  document
-    .getElementById("extract-cam-high")
-    .addEventListener("click", async () => {
-      const episode = currentEpisode();
-      if (!episode || !episode.valid) {
-        return;
-      }
-
-      const result = await extractCamHigh(episode.episodeId);
-      document.getElementById("status-message").textContent =
-        `Exported ${result.exportedFrames} frame(s) to ${result.outputDir}`;
-    });
-
   document.querySelectorAll("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
       state.playbackRate = Number(button.dataset.rate);
+      renderControlState();
       void syncFramesToCurrentFrame();
     });
   });
@@ -294,6 +303,7 @@ async function start() {
   state.annotations = await fetchAnnotations();
   bindControls();
   renderEpisodeList();
+  renderControlState();
   if (state.episodes.some((episode) => episode.valid)) {
     state.currentEpisodeIndex = state.episodes.findIndex((episode) => episode.valid);
     void loadEpisodeFrames();

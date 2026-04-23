@@ -130,6 +130,14 @@ body {
   padding: 6px 10px;
   cursor: pointer;
   font: inherit;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.sidebar button.is-selected,
+.controls button.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fffaf2;
 }
 
 #jump-to-frame {

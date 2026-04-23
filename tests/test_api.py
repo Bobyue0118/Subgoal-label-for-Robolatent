@@ -68,7 +68,7 @@ def test_root_page_contains_annotation_controls(tmp_path):
     assert 'id="episode-list"' in html
     assert 'id="viewer-grid"' in html
     assert 'id="mark-frame"' in html
-    assert 'id="extract-cam-high"' in html
+    assert 'id="extract-cam-high"' not in html
 
 
 def test_root_page_loads_frontend_modules(tmp_path):
