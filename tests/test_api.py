@@ -58,3 +58,13 @@ def test_root_page_contains_annotation_controls(tmp_path):
     assert 'id="viewer-grid"' in html
     assert 'id="mark-frame"' in html
     assert 'id="extract-cam-high"' in html
+
+
+def test_root_page_loads_frontend_modules(tmp_path):
+    app = create_app(dataset_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "fetchEpisodes" in response.get_data(as_text=True)

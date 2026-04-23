@@ -33,7 +33,7 @@
           <button data-rate="0.1" type="button">0.1x</button>
           <button id="step-backward" type="button">Prev Frame</button>
           <button id="step-forward" type="button">Next Frame</button>
-          <input id="jump-to-frame" type="number" min="0" />
+          <input id="jump-to-frame" type="number" min="0" value="0" />
           <button id="mark-frame" type="button">Mark / Unmark</button>
           <button id="extract-cam-high" type="button">Extract cam_high</button>
         </section>
@@ -41,7 +41,7 @@
         <section class="current-state">
           <p>Current frame: <strong id="current-frame-label">0</strong></p>
           <p>Saved frames: <span id="saved-frame-list">[]</span></p>
-          <p id="status-message"></p>
+          <p id="status-message" aria-live="polite"></p>
         </section>
       </main>
     </div>
