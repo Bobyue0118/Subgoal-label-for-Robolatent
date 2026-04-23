@@ -1,11 +1,12 @@
+from io import BytesIO
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 from app.annotations import load_annotations, save_episode_annotations
 from app.config import dataset_paths
 from app.episodes import discover_episodes, probe_video_metadata
-from app.extraction import extract_cam_high_frames
+from app.extraction import extract_cam_high_frames, frame_png_bytes
 
 
 def create_app(dataset_dir: Path | None = None) -> Flask:
@@ -32,12 +33,37 @@ def create_app(dataset_dir: Path | None = None) -> Flask:
             probe_video=app.config["PROBE_VIDEO"],
         ):
             item = record.to_dict()
+            item["frameBasePath"] = f"/api/episodes/{record.episode_id}/frames"
             item["videos"] = {
                 camera: f"/dataset/{path.name}"
                 for camera, path in record.video_paths.items()
             }
             payload.append(item)
         return jsonify(payload)
+
+    @app.get("/api/episodes/<episode_id>/frames/<camera>/<int:frame_index>.png")
+    def api_episode_frame(episode_id: str, camera: str, frame_index: int):
+        records = {
+            record.episode_id: record
+            for record in discover_episodes(
+                paths.dataset_dir,
+                probe_video=app.config["PROBE_VIDEO"],
+            )
+        }
+        record = records.get(episode_id)
+        if record is None or record.hdf5_path is None:
+            abort(404)
+
+        try:
+            image_bytes = frame_png_bytes(record.hdf5_path, camera, frame_index)
+        except (KeyError, IndexError, OSError, ValueError):
+            abort(404)
+
+        return send_file(
+            BytesIO(image_bytes),
+            mimetype="image/png",
+            download_name=f"{episode_id}-{camera}-{frame_index:06d}.png",
+        )
 
     @app.get("/api/annotations")
     def api_annotations():

@@ -4,11 +4,7 @@ import {
   fetchEpisodes,
   saveEpisodeAnnotations,
 } from "./api.js";
-import {
-  frameToSeconds,
-  stepFrame,
-  toggleFrameIndex,
-} from "./player-controller.js";
+import { stepFrame, toggleFrameIndex } from "./player-controller.js";
 
 const state = {
   episodes: [],
@@ -19,6 +15,7 @@ const state = {
   isPlaying: false,
   animationHandle: null,
 };
+const DEFAULT_FPS = 15;
 
 function currentEpisode() {
   return state.episodes[state.currentEpisodeIndex];
@@ -74,20 +71,36 @@ function renderCurrentState() {
   );
 }
 
-function syncVideosToCurrentFrame() {
+function frameSrc(episode, camera) {
+  return `${episode.frameBasePath}/${camera}/${state.currentFrameIndex}.png`;
+}
+
+function syncFramesToCurrentFrame() {
   const episode = currentEpisode();
   if (!episode) {
     return;
   }
 
-  const currentSeconds = frameToSeconds(state.currentFrameIndex, episode.fps);
-  document.querySelectorAll(".viewer-card video").forEach((video) => {
-    video.pause();
-    video.currentTime = currentSeconds;
+  document.querySelectorAll(".viewer-card").forEach((card) => {
+    const camera = card.dataset.camera;
+    const frameLabel = card.querySelector('[data-role="frame-label"]');
+    const markedLabel = card.querySelector('[data-role="marked-label"]');
+    const image = card.querySelector("img");
+
+    if (!frameLabel || !markedLabel || !image) {
+      return;
+    }
+
+    frameLabel.textContent = `frame ${state.currentFrameIndex}`;
+    markedLabel.textContent = currentSavedFrames().includes(state.currentFrameIndex)
+      ? "marked"
+      : "unmarked";
+    image.src = frameSrc(episode, camera);
+    image.alt = `${camera} frame ${state.currentFrameIndex}`;
   });
 }
 
-function loadEpisodeVideos() {
+function loadEpisodeFrames() {
   const episode = currentEpisode();
   if (!episode || !episode.valid) {
     document.getElementById("status-message").textContent =
@@ -97,21 +110,18 @@ function loadEpisodeVideos() {
 
   document.querySelectorAll(".viewer-card").forEach((card) => {
     const camera = card.dataset.camera;
-    const marked = currentSavedFrames().includes(state.currentFrameIndex)
-      ? "marked"
-      : "unmarked";
     card.innerHTML = `
       <header class="viewer-card__header">
         <strong>${camera}</strong>
-        <span>frame ${state.currentFrameIndex}</span>
-        <span>${marked}</span>
+        <span data-role="frame-label">frame ${state.currentFrameIndex}</span>
+        <span data-role="marked-label">unmarked</span>
       </header>
-      <video muted playsinline preload="metadata" src="${episode.videos[camera]}"></video>
+      <img src="${frameSrc(episode, camera)}" alt="${camera} frame ${state.currentFrameIndex}" />
     `;
   });
 
   document.getElementById("status-message").textContent = "";
-  syncVideosToCurrentFrame();
+  syncFramesToCurrentFrame();
   renderCurrentState();
 }
 
@@ -121,7 +131,7 @@ function moveToAdjacentValidEpisode(direction) {
     if (state.episodes[nextIndex].valid) {
       state.currentEpisodeIndex = nextIndex;
       state.currentFrameIndex = 0;
-      loadEpisodeVideos();
+      loadEpisodeFrames();
       return;
     }
     nextIndex += direction;
@@ -144,7 +154,7 @@ function tickPlayback() {
     1,
     episode.frameCount,
   );
-  syncVideosToCurrentFrame();
+  syncFramesToCurrentFrame();
   renderCurrentState();
   if (state.currentFrameIndex >= episode.frameCount - 1) {
     state.isPlaying = false;
@@ -152,7 +162,7 @@ function tickPlayback() {
   }
   state.animationHandle = window.setTimeout(
     tickPlayback,
-    1000 / (episode.fps * state.playbackRate),
+    1000 / ((episode.fps || DEFAULT_FPS) * state.playbackRate),
   );
 }
 
@@ -168,7 +178,7 @@ function bindControls() {
       tickPlayback();
     } else {
       window.clearTimeout(state.animationHandle);
-      syncVideosToCurrentFrame();
+      syncFramesToCurrentFrame();
     }
   });
 
@@ -183,7 +193,7 @@ function bindControls() {
       -1,
       episode.frameCount,
     );
-    loadEpisodeVideos();
+    loadEpisodeFrames();
   });
 
   document.getElementById("step-forward").addEventListener("click", () => {
@@ -197,7 +207,7 @@ function bindControls() {
       1,
       episode.frameCount,
     );
-    loadEpisodeVideos();
+    loadEpisodeFrames();
   });
 
   document.getElementById("jump-to-frame").addEventListener("change", (event) => {
@@ -211,7 +221,7 @@ function bindControls() {
       Number(event.target.value),
       episode.frameCount,
     );
-    loadEpisodeVideos();
+    loadEpisodeFrames();
   });
 
   document.getElementById("mark-frame").addEventListener("click", async () => {
@@ -223,7 +233,7 @@ function bindControls() {
     const next = toggleFrameIndex(currentSavedFrames(), state.currentFrameIndex);
     state.annotations = await saveEpisodeAnnotations(episode.episodeId, next);
     renderEpisodeList();
-    loadEpisodeVideos();
+    loadEpisodeFrames();
   });
 
   document
@@ -242,7 +252,7 @@ function bindControls() {
   document.querySelectorAll("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
       state.playbackRate = Number(button.dataset.rate);
-      syncVideosToCurrentFrame();
+      syncFramesToCurrentFrame();
     });
   });
 
@@ -262,7 +272,7 @@ async function start() {
   renderEpisodeList();
   if (state.episodes.some((episode) => episode.valid)) {
     state.currentEpisodeIndex = state.episodes.findIndex((episode) => episode.valid);
-    loadEpisodeVideos();
+    loadEpisodeFrames();
     return;
   }
 

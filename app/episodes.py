@@ -1,11 +1,17 @@
-import json
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import h5py
+
 
 CAMERAS = ("cam_high", "cam_head", "cam_left_wrist", "cam_right_wrist")
+CAMERA_DATASETS = {
+    camera: f"/observations/images/{camera}"
+    for camera in CAMERAS
+}
+DEFAULT_FPS = 15.0
 HDF5_RE = re.compile(r"^(episode_\d+)\.hdf5$")
 VIDEO_RE = re.compile(r"^(episode_\d+)_(cam_[a-z_]+)\.mp4$")
 
@@ -39,6 +45,8 @@ class EpisodeRecord:
 
 
 def probe_video_metadata(video_path: Path) -> VideoMetadata:
+    import json
+
     result = subprocess.run(
         [
             "ffprobe",
@@ -65,6 +73,26 @@ def probe_video_metadata(video_path: Path) -> VideoMetadata:
     )
 
 
+def inspect_episode_hdf5(hdf5_path: Path) -> tuple[int | None, list[str]]:
+    missing_cameras: list[str] = []
+    frame_count: int | None = None
+
+    with h5py.File(hdf5_path, "r") as handle:
+        for camera, dataset_path in CAMERA_DATASETS.items():
+            if dataset_path not in handle:
+                missing_cameras.append(camera)
+                continue
+
+            dataset = handle[dataset_path]
+            camera_frame_count = int(dataset.shape[0])
+            if frame_count is None:
+                frame_count = camera_frame_count
+            elif camera_frame_count != frame_count:
+                raise ValueError("camera frame counts do not match")
+
+    return frame_count, missing_cameras
+
+
 def discover_episodes(
     dataset_dir: Path,
     probe_video=probe_video_metadata,
@@ -88,21 +116,32 @@ def discover_episodes(
     records: list[EpisodeRecord] = []
     for episode_id in sorted(grouped, key=lambda value: int(value.split("_")[1])):
         item = grouped[episode_id]
-        missing_cameras = [camera for camera in CAMERAS if camera not in item["videos"]]
-        valid = item["hdf5"] is not None and not missing_cameras
-        metadata = None
-        if valid:
+        frame_count = None
+        fps = DEFAULT_FPS
+        missing_cameras = list(CAMERAS)
+        valid = False
+
+        if item["hdf5"] is not None:
             try:
-                metadata = probe_video(item["videos"]["cam_high"])
+                frame_count, missing_cameras = inspect_episode_hdf5(item["hdf5"])
+                valid = frame_count is not None and not missing_cameras
             except Exception:
-                valid = False
+                frame_count = None
+                missing_cameras = []
+
+        if valid and "cam_high" in item["videos"]:
+            try:
+                fps = probe_video(item["videos"]["cam_high"]).fps
+            except Exception:
+                fps = DEFAULT_FPS
+
         records.append(
             EpisodeRecord(
                 episode_id=episode_id,
                 hdf5_path=item["hdf5"],
                 video_paths=item["videos"],
-                frame_count=metadata.frame_count if metadata else None,
-                fps=metadata.fps if metadata else None,
+                frame_count=frame_count,
+                fps=fps,
                 valid=valid,
                 missing_cameras=missing_cameras,
             )

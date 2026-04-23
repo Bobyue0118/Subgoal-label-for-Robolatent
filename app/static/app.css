@@ -63,11 +63,12 @@ body {
   margin-bottom: 8px;
 }
 
-.viewer-card video {
+.viewer-card img {
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 12px;
   background: #000;
+  object-fit: contain;
 }
 
 .sidebar button,
