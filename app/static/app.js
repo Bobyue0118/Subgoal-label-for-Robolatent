@@ -172,7 +172,8 @@ function moveToAdjacentValidEpisode(direction) {
     if (state.episodes[nextIndex].valid) {
       state.currentEpisodeIndex = nextIndex;
       state.currentFrameIndex = 0;
-      loadEpisodeFrames();
+      renderEpisodeList();
+      void loadEpisodeFrames();
       return;
     }
     nextIndex += direction;
