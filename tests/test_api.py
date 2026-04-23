@@ -44,3 +44,17 @@ def test_episode_and_annotation_routes_return_expected_payloads(tmp_path):
     )
     assert annotations_response.get_json() == {}
     assert save_response.get_json()["episode_49"] == [183, 241]
+
+
+def test_root_page_contains_annotation_controls(tmp_path):
+    app = create_app(dataset_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.get("/")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'id="episode-list"' in html
+    assert 'id="viewer-grid"' in html
+    assert 'id="mark-frame"' in html
+    assert 'id="extract-cam-high"' in html

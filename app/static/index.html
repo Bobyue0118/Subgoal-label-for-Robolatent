@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Episode Frame Annotator</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>Episodes</h1>
+        <div class="sidebar-actions">
+          <button id="previous-episode" type="button">Previous</button>
+          <button id="next-episode" type="button">Next</button>
+        </div>
+        <ul id="episode-list"></ul>
+      </aside>
+
+      <main class="workspace">
+        <section id="viewer-grid" class="viewer-grid">
+          <article class="viewer-card" data-camera="cam_high"></article>
+          <article class="viewer-card" data-camera="cam_head"></article>
+          <article class="viewer-card" data-camera="cam_left_wrist"></article>
+          <article class="viewer-card" data-camera="cam_right_wrist"></article>
+        </section>
+
+        <section class="controls">
+          <button id="play-pause" type="button">Play</button>
+          <button data-rate="1" type="button">1x</button>
+          <button data-rate="0.5" type="button">0.5x</button>
+          <button data-rate="0.25" type="button">0.25x</button>
+          <button data-rate="0.1" type="button">0.1x</button>
+          <button id="step-backward" type="button">Prev Frame</button>
+          <button id="step-forward" type="button">Next Frame</button>
+          <input id="jump-to-frame" type="number" min="0" />
+          <button id="mark-frame" type="button">Mark / Unmark</button>
+          <button id="extract-cam-high" type="button">Extract cam_high</button>
+        </section>
+
+        <section class="current-state">
+          <p>Current frame: <strong id="current-frame-label">0</strong></p>
+          <p>Saved frames: <span id="saved-frame-list">[]</span></p>
+          <p id="status-message"></p>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>
