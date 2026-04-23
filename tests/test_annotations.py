@@ -124,6 +124,16 @@ def test_save_episode_annotations_raises_for_invalid_frame_indices(
         save_episode_annotations(target, "episode_49", frame_indices)
 
 
+@pytest.mark.parametrize("episode_id", [123, "", None])
+def test_save_episode_annotations_rejects_invalid_episode_id(tmp_path, episode_id):
+    target = tmp_path / "annotations.json"
+
+    with pytest.raises(AnnotationFileError):
+        save_episode_annotations(target, episode_id, [241])
+
+    assert target.exists() is False
+
+
 def test_save_episode_annotations_refuses_invalid_utf8_existing_file(
     tmp_path, monkeypatch
 ):

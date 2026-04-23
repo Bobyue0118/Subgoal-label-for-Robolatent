@@ -109,6 +109,9 @@ def save_episode_annotations(
     episode_id: str,
     frame_indices: list[int],
 ) -> dict[str, list[int]]:
+    if not isinstance(episode_id, str) or episode_id == "":
+        raise AnnotationFileError(f"Invalid episode id in {annotations_file}")
+
     with _locked_annotations_file(annotations_file):
         annotations = load_annotations(annotations_file)
         annotations[episode_id] = _normalize_frame_indices(
