@@ -4,6 +4,7 @@ import {
   fetchEpisodes,
   saveEpisodeAnnotations,
 } from "./api.js";
+import { loadFrameImages } from "./frame-loader.js";
 import { stepFrame, toggleFrameIndex } from "./player-controller.js";
 
 const state = {
@@ -54,7 +55,7 @@ function renderEpisodeList() {
     button.addEventListener("click", () => {
       state.currentEpisodeIndex = index;
       state.currentFrameIndex = 0;
-      loadEpisodeVideos();
+      void loadEpisodeFrames();
     });
     item.appendChild(button);
     list.appendChild(item);
@@ -75,19 +76,40 @@ function frameSrc(episode, camera) {
   return `${episode.frameBasePath}/${camera}/${state.currentFrameIndex}.png`;
 }
 
-function syncFramesToCurrentFrame() {
+async function syncFramesToCurrentFrame() {
   const episode = currentEpisode();
   if (!episode) {
-    return;
+    return false;
   }
+
+  const imagesByCamera = {};
+  const sourcesByCamera = {};
 
   document.querySelectorAll(".viewer-card").forEach((card) => {
     const camera = card.dataset.camera;
-    const frameLabel = card.querySelector('[data-role="frame-label"]');
-    const markedLabel = card.querySelector('[data-role="marked-label"]');
     const image = card.querySelector("img");
 
-    if (!frameLabel || !markedLabel || !image) {
+    if (!image) {
+      return;
+    }
+
+    imagesByCamera[camera] = image;
+    sourcesByCamera[camera] = frameSrc(episode, camera);
+  });
+
+  try {
+    await loadFrameImages(imagesByCamera, sourcesByCamera);
+  } catch (error) {
+    document.getElementById("status-message").textContent =
+      error instanceof Error ? error.message : "Failed to load frame.";
+    return false;
+  }
+
+  document.querySelectorAll(".viewer-card").forEach((card) => {
+    const frameLabel = card.querySelector('[data-role="frame-label"]');
+    const markedLabel = card.querySelector('[data-role="marked-label"]');
+
+    if (!frameLabel || !markedLabel) {
       return;
     }
 
@@ -95,12 +117,13 @@ function syncFramesToCurrentFrame() {
     markedLabel.textContent = currentSavedFrames().includes(state.currentFrameIndex)
       ? "marked"
       : "unmarked";
-    image.src = frameSrc(episode, camera);
-    image.alt = `${camera} frame ${state.currentFrameIndex}`;
   });
+
+  renderCurrentState();
+  return true;
 }
 
-function loadEpisodeFrames() {
+async function loadEpisodeFrames() {
   const episode = currentEpisode();
   if (!episode || !episode.valid) {
     document.getElementById("status-message").textContent =
@@ -121,8 +144,7 @@ function loadEpisodeFrames() {
   });
 
   document.getElementById("status-message").textContent = "";
-  syncFramesToCurrentFrame();
-  renderCurrentState();
+  await syncFramesToCurrentFrame();
 }
 
 function moveToAdjacentValidEpisode(direction) {
@@ -149,21 +171,23 @@ function tickPlayback() {
     return;
   }
 
-  state.currentFrameIndex = stepFrame(
-    state.currentFrameIndex,
-    1,
-    episode.frameCount,
-  );
-  syncFramesToCurrentFrame();
-  renderCurrentState();
-  if (state.currentFrameIndex >= episode.frameCount - 1) {
+  const nextFrameIndex = stepFrame(state.currentFrameIndex, 1, episode.frameCount);
+  if (nextFrameIndex === state.currentFrameIndex) {
     state.isPlaying = false;
     return;
   }
-  state.animationHandle = window.setTimeout(
-    tickPlayback,
-    1000 / ((episode.fps || DEFAULT_FPS) * state.playbackRate),
-  );
+
+  state.currentFrameIndex = nextFrameIndex;
+  void syncFramesToCurrentFrame().then((didSync) => {
+    if (!didSync || !state.isPlaying) {
+      return;
+    }
+
+    state.animationHandle = window.setTimeout(
+      tickPlayback,
+      1000 / ((episode.fps || DEFAULT_FPS) * state.playbackRate),
+    );
+  });
 }
 
 function bindControls() {
@@ -178,7 +202,7 @@ function bindControls() {
       tickPlayback();
     } else {
       window.clearTimeout(state.animationHandle);
-      syncFramesToCurrentFrame();
+      void syncFramesToCurrentFrame();
     }
   });
 
@@ -193,7 +217,7 @@ function bindControls() {
       -1,
       episode.frameCount,
     );
-    loadEpisodeFrames();
+    void loadEpisodeFrames();
   });
 
   document.getElementById("step-forward").addEventListener("click", () => {
@@ -207,7 +231,7 @@ function bindControls() {
       1,
       episode.frameCount,
     );
-    loadEpisodeFrames();
+    void loadEpisodeFrames();
   });
 
   document.getElementById("jump-to-frame").addEventListener("change", (event) => {
@@ -221,7 +245,7 @@ function bindControls() {
       Number(event.target.value),
       episode.frameCount,
     );
-    loadEpisodeFrames();
+    void loadEpisodeFrames();
   });
 
   document.getElementById("mark-frame").addEventListener("click", async () => {
@@ -233,7 +257,7 @@ function bindControls() {
     const next = toggleFrameIndex(currentSavedFrames(), state.currentFrameIndex);
     state.annotations = await saveEpisodeAnnotations(episode.episodeId, next);
     renderEpisodeList();
-    loadEpisodeFrames();
+    await loadEpisodeFrames();
   });
 
   document
@@ -252,7 +276,7 @@ function bindControls() {
   document.querySelectorAll("[data-rate]").forEach((button) => {
     button.addEventListener("click", () => {
       state.playbackRate = Number(button.dataset.rate);
-      syncFramesToCurrentFrame();
+      void syncFramesToCurrentFrame();
     });
   });
 
@@ -272,7 +296,7 @@ async function start() {
   renderEpisodeList();
   if (state.episodes.some((episode) => episode.valid)) {
     state.currentEpisodeIndex = state.episodes.findIndex((episode) => episode.valid);
-    loadEpisodeFrames();
+    void loadEpisodeFrames();
     return;
   }
 
