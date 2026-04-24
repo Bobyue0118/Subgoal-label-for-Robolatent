@@ -14,7 +14,7 @@ def write_episode_hdf5(path: Path, frame_count: int = 2) -> None:
         for camera_index, camera in enumerate(CAMERAS):
             data = np.full((frame_count, 2, 2, 3), camera_index * 30, dtype=np.uint8)
             if camera == "cam_high":
-                data[1, 0, 0] = [255, 0, 0]
+                data[1, 0, 0] = [0, 0, 255]
             handle.create_dataset(f"/observations/images/{camera}", data=data)
 
 

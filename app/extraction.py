@@ -14,6 +14,10 @@ CAMERA_DATASETS = {
 }
 
 
+def frame_image(frame) -> Image.Image:
+    return Image.fromarray(frame[:, :, ::-1])
+
+
 def frame_png_bytes(hdf5_path: Path, camera: str, frame_index: int) -> bytes:
     if camera not in CAMERA_DATASETS:
         raise KeyError(camera)
@@ -25,7 +29,7 @@ def frame_png_bytes(hdf5_path: Path, camera: str, frame_index: int) -> bytes:
         if frame_index >= int(frames.shape[0]):
             raise IndexError(frame_index)
         buffer = BytesIO()
-        Image.fromarray(frames[frame_index]).save(buffer, format="PNG")
+        frame_image(frames[frame_index]).save(buffer, format="PNG")
         return buffer.getvalue()
 
 
@@ -41,5 +45,5 @@ def extract_cam_high_frames(
             target = output_dir / f"frame_{frame_index:06d}.png"
             if target.exists() and not overwrite:
                 continue
-            Image.fromarray(frame).save(target)
+            frame_image(frame).save(target)
     return len(list(output_dir.glob("frame_*.png")))

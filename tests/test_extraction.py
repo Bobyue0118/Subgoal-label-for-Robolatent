@@ -12,8 +12,8 @@ def test_extract_cam_high_frames_writes_pngs_in_frame_order(tmp_path):
             "/observations/images/cam_high",
             data=np.array(
                 [
-                    [[[255, 0, 0], [0, 0, 0]], [[0, 0, 0], [0, 255, 0]]],
-                    [[[0, 0, 255], [0, 0, 0]], [[0, 0, 0], [255, 255, 0]]],
+                    [[[0, 0, 255], [0, 0, 0]], [[0, 0, 0], [0, 255, 0]]],
+                    [[[255, 0, 0], [0, 0, 0]], [[0, 0, 0], [0, 255, 255]]],
                 ],
                 dtype=np.uint8,
             ),
@@ -27,4 +27,6 @@ def test_extract_cam_high_frames_writes_pngs_in_frame_order(tmp_path):
         "frame_000000.png",
         "frame_000001.png",
     ]
-    assert Image.open(output_dir / "frame_000001.png").size == (2, 2)
+    image = Image.open(output_dir / "frame_000000.png")
+    assert image.size == (2, 2)
+    assert image.getpixel((0, 0)) == (255, 0, 0)
